@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Mon suivi">
+<meta name="theme-color" content="#F3F1FA">
+<title>Mon suivi</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%236F5FC7'/%3E%3Cpath d='M90 48c-14 0-24 10-24 26 0 20 24 40 24 40s24-20 24-40c0-16-10-26-24-26z' fill='%23fff' opacity='.92'/%3E%3Ccircle cx='90' cy='72' r='10' fill='%236F5FC7'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --lav-50:#F6F4FC; --lav-100:#EDE9F8; --lav-200:#E0DAF2; --lav-300:#C9BEEA;
+    --lav-400:#A899DD; --lav-500:#8B7FD4; --lav-600:#6F5FC7; --lav-700:#5A4BA8;
+    --ink:#3B3357; --ink-soft:#6B6389; --ink-faint:#9890B0;
+    --white:#FFFFFF; --bg:#F3F1FA; --line:#E7E2F3; --ok:#5BB98C; --danger:#D98A8A;
+    --sh:0 1px 3px rgba(90,75,168,.06),0 1px 2px rgba(90,75,168,.04);
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overscroll-behavior-y:none}
+  body{
+    font-family:var(--font);background:var(--bg);color:var(--ink);
+    -webkit-font-smoothing:antialiased;line-height:1.4;
+    max-width:480px;margin:0 auto;position:relative;
+    padding-top:env(safe-area-inset-top);
+  }
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,textarea{font-family:inherit;font-size:16px}
+
+  /* ---- App shell ---- */
+  #app{padding:14px 16px 96px;min-height:100vh}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 16px}
+  .topbar h1{font-size:24px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+  .topbar .sub{font-size:12.5px;color:var(--lav-500);font-weight:500;margin-top:3px;line-height:1.4;max-width:270px;font-style:italic}
+  .flower{width:40px;height:40px;border-radius:50%;background:var(--lav-100);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--lav-600);flex-shrink:0}
+
+  .card{background:var(--white);border-radius:18px;padding:18px;box-shadow:var(--sh);border:.5px solid var(--line);margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:600;color:var(--ink);margin-bottom:2px}
+  .muted{color:var(--ink-faint);font-size:13px}
+  .pill{display:inline-flex;align-items:center;gap:5px;background:var(--lav-100);color:var(--lav-700);font-size:12px;font-weight:600;padding:5px 11px;border-radius:20px}
+
+  /* ---- Record button ---- */
+  .rec-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;padding:6px 0 2px}
+  .rec-btn{width:88px;height:88px;border-radius:50%;background:var(--lav-600);display:flex;align-items:center;justify-content:center;color:#fff;font-size:34px;transition:transform .15s,background .2s;box-shadow:0 6px 18px rgba(111,95,199,.32)}
+  .rec-btn:active{transform:scale(.94)}
+  .rec-btn.live{background:var(--danger);animation:pulse 1.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(217,138,138,.5)}70%{box-shadow:0 0 0 18px rgba(217,138,138,0)}100%{box-shadow:0 0 0 0 rgba(217,138,138,0)}}
+  .rec-label{font-size:15px;font-weight:600;color:var(--ink)}
+  .rec-hint{font-size:12.5px;color:var(--ink-faint);text-align:center;max-width:230px}
+
+  textarea.notes{width:100%;border:1px solid var(--line);border-radius:14px;padding:13px;resize:vertical;min-height:110px;color:var(--ink);background:var(--lav-50);outline:none}
+  textarea.notes:focus{border-color:var(--lav-300)}
+
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:14px;font-size:15px;font-weight:600;transition:transform .12s,opacity .2s}
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:var(--lav-600);color:#fff}
+  .btn-primary:disabled{opacity:.5}
+  .btn-ghost{background:var(--lav-100);color:var(--lav-700)}
+  .btn-row{display:flex;gap:10px;margin-top:12px}
+  .btn-row .btn{margin:0}
+
+  .spinner{width:17px;height:17px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---- Todo ---- */
+  .todo{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:.5px solid var(--line)}
+  .todo:last-child{border-bottom:none}
+  .box{width:22px;height:22px;border-radius:7px;border:2px solid var(--lav-300);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:.15s;margin-top:1px}
+  .box.on{background:var(--lav-600);border-color:var(--lav-600);color:#fff;font-size:13px}
+  .todo-txt{font-size:14.5px;color:var(--ink);flex:1;line-height:1.35}
+  .todo.done .todo-txt{color:var(--ink-faint);text-decoration:line-through}
+  .todo-del{color:var(--ink-faint);font-size:16px;padding:2px 4px;opacity:.6}
+
+  /* ---- Stats ---- */
+  .stats{display:flex;gap:12px}
+  .stat{flex:1;background:var(--white);border-radius:16px;padding:15px 12px;text-align:center;box-shadow:var(--sh);border:.5px solid var(--line)}
+  .stat .n{font-size:26px;font-weight:700;color:var(--lav-600);letter-spacing:-.02em}
+  .stat .l{font-size:11.5px;color:var(--ink-faint);margin-top:2px;font-weight:500}
+
+  /* ---- Calendar ---- */
+  .cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .cal-head .m{font-size:17px;font-weight:600;color:var(--ink);text-transform:capitalize}
+  .cal-nav{width:34px;height:34px;border-radius:50%;background:var(--lav-100);display:flex;align-items:center;justify-content:center;color:var(--lav-600);font-size:18px}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px 0}
+  .dow{text-align:center;font-size:11px;color:var(--ink-faint);font-weight:600;padding-bottom:8px}
+  .day{aspect-ratio:1;max-height:42px;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--ink);border-radius:11px;position:relative;margin:0 auto;width:34px}
+  .day.empty{visibility:hidden}
+  .day.today{font-weight:700;color:var(--lav-700);background:var(--lav-100)}
+  .day.past-s{background:var(--lav-600);color:#fff;font-weight:600}
+  .day.next-s{background:var(--lav-100);color:var(--lav-700);font-weight:600;border:1.5px dashed var(--lav-400)}
+  .day.tappable{cursor:pointer}
+  .cal-legend{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
+  .lg{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-soft)}
+  .dot{width:12px;height:12px;border-radius:4px}
+
+  /* ---- Session list ---- */
+  .sess{display:flex;gap:13px;padding:14px 0;border-bottom:.5px solid var(--line)}
+  .sess:last-child{border-bottom:none}
+  .sess-date{width:46px;flex-shrink:0;text-align:center}
+  .sess-date .d{font-size:20px;font-weight:700;color:var(--lav-600);line-height:1}
+  .sess-date .mo{font-size:10.5px;color:var(--ink-faint);text-transform:uppercase;font-weight:600;margin-top:3px}
+  .sess-body{flex:1;min-width:0}
+  .sess-body .t{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:3px}
+  .sess-body .p{font-size:12.5px;color:var(--ink-soft);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .sess-body .cnt{font-size:11.5px;color:var(--lav-600);margin-top:5px;font-weight:600}
+  .sess-chev{color:var(--ink-faint);font-size:16px;align-self:center}
+
+  .empty{text-align:center;padding:34px 20px;color:var(--ink-faint)}
+  .empty .ico{font-size:38px;opacity:.4;margin-bottom:10px}
+  .empty p{font-size:14px}
+
+  /* ---- Tab bar ---- */
+  .tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:rgba(255,255,255,.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:.5px solid var(--line);display:flex;padding:8px 0 calc(8px + env(safe-area-inset-bottom));z-index:50}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-faint);font-size:10.5px;font-weight:600;padding:4px 0}
+  .tab .ico{font-size:22px}
+  .tab.on{color:var(--lav-600)}
+
+  /* ---- Modal / sheet ---- */
+  .overlay{position:fixed;inset:0;background:rgba(59,51,87,.4);z-index:100;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
+  .overlay.show{display:flex}
+  .sheet{background:var(--bg);width:100%;max-width:480px;border-radius:24px 24px 0 0;padding:8px 18px calc(20px + env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto;animation:up .28s cubic-bezier(.2,.8,.2,1)}
+  @keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .grab{width:38px;height:5px;border-radius:3px;background:var(--lav-200);margin:8px auto 16px}
+  .sheet h2{font-size:19px;font-weight:700;margin-bottom:3px}
+  .sheet .field{margin:14px 0}
+  .sheet label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:7px}
+  .sheet input[type=text],.sheet input[type=date],.sheet input[type=time],.sheet input[type=password],.sheet textarea{width:100%;border:1px solid var(--line);border-radius:13px;padding:13px;background:var(--white);color:var(--ink);outline:none}
+  .sheet input:focus,.sheet textarea:focus{border-color:var(--lav-300)}
+  .sheet textarea{min-height:90px;resize:vertical}
+
+  .toast{position:fixed;bottom:120px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 20px;border-radius:22px;font-size:13.5px;font-weight:500;z-index:200;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+
+  .view{display:none}
+  .view.active{display:block;animation:fade .25s}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+  .link{color:var(--lav-600);font-weight:600;font-size:13px}
+  .warn{background:#FCF3E8;color:#8a5a1a;font-size:12.5px;padding:11px 13px;border-radius:12px;line-height:1.45;margin-top:10px}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="topbar">
+    <div>
+      <h1>Mon suivi</h1>
+      <div class="sub" id="topSub">Je t'aime fort ma biche, et même si il t'arrive d'avoir du mal à croire en toi, moi, je crois en toi 💜</div>
+    </div>
+    <button class="flower" id="settingsBtn" aria-label="Réglages"><i style="font-style:normal">⚙︎</i></button>
+  </div>
+
+  <!-- ===== ACCUEIL ===== -->
+  <div class="view active" id="v-home">
+    <div class="card">
+      <div class="rec-wrap">
+        <button class="rec-btn" id="recBtn" aria-label="Enregistrer une note vocale">💜</button>
+        <div class="rec-label" id="recLabel">Comment s'est passé ta séance aujourd'hui ?</div>
+        <div class="rec-hint" id="recHint"></div>
+      </div>
+      <textarea class="notes" id="rawNotes" placeholder="… ou écris ici directement" style="margin-top:16px;display:none"></textarea>
+      <div id="afterRec" style="display:none">
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="clearRaw" style="flex:.5">Effacer</button>
+          <button class="btn btn-primary" id="processBtn" style="flex:1"><span>Mettre au clair</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="resultCard" style="display:none"></div>
+
+    <div class="stats" style="margin-bottom:14px">
+      <div class="stat"><div class="n" id="stSess">0</div><div class="l">séances</div></div>
+      <div class="stat"><div class="n" id="stDone">0/0</div><div class="l">exercices faits</div></div>
+      <div class="stat"><div class="n" id="stStreak">0</div><div class="l">à faire</div></div>
+    </div>
+
+    <div class="card" id="todoCard">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span class="pill">✓ À faire d'ici la prochaine fois</span>
+        <button id="addTodoBtn" style="color:var(--lav-600);font-size:22px;font-weight:600;padding:0 4px" aria-label="Ajouter une tâche">＋</button>
+      </div>
+      <div id="todoList" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <!-- ===== CALENDRIER ===== -->
+  <div class="view" id="v-cal">
+    <div class="card">
+      <div class="cal-head">
+        <button class="cal-nav" id="calPrev">‹</button>
+        <div class="m" id="calMonth"></div>
+        <button class="cal-nav" id="calNext">›</button>
+      </div>
+      <div class="grid" id="calGrid"></div>
+      <div class="cal-legend">
+        <div class="lg"><span class="dot" style="background:var(--lav-600)"></span>Séance passée</div>
+        <div class="lg"><span class="dot" style="background:var(--lav-100);border:1.5px dashed var(--lav-400)"></span>À venir</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="addSessBtn" style="margin-bottom:14px">＋ Planifier une séance</button>
+  </div>
+
+  <!-- ===== HISTORIQUE ===== -->
+  <div class="view" id="v-hist">
+    <div class="card">
+      <h2 style="margin-bottom:4px">Mes séances</h2>
+      <div class="muted" style="margin-bottom:6px">Toutes tes séances, passées et à venir</div>
+      <div id="sessList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB BAR ===== -->
+<nav class="tabbar">
+  <button class="tab on" data-view="home"><span class="ico">🏠</span>Accueil</button>
+  <button class="tab" data-view="cal"><span class="ico">📅</span>Calendrier</button>
+  <button class="tab" data-view="hist"><span class="ico">📖</span>Séances</button>
+</nav>
+
+<!-- ===== OVERLAY GÉNÉRIQUE ===== -->
+<div class="overlay" id="overlay">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ STOCKAGE LOCAL PERSISTANT ============ */
+const DB_KEY = 'monsuivi_v1';
+const AI_KEY = 'monsuivi_apikey';
+const db = {
+  sessions: [],   // {id, date, time, title, rawNotes, summary, mood, createdAt, done:bool}
+  todos: [],      // {id, text, done, sessionId, createdAt}
+};
+function load(){
+  try{ const raw = localStorage.getItem(DB_KEY); if(raw) Object.assign(db, JSON.parse(raw)); }catch(e){}
+}
+function save(){ try{ localStorage.setItem(DB_KEY, JSON.stringify(db)); }catch(e){ toast("Stockage plein ou bloqué"); } }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+/* ============ UTILS ============ */
+const $ = s => document.querySelector(s);
+const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const MOIS_C = ['jan','fév','mar','avr','mai','juin','juil','août','sep','oct','nov','déc'];
+const JOURS = ['dim','lun','mar','mer','jeu','ven','sam'];
+function fmtDate(iso){ const d=new Date(iso+'T00:00'); return d.getDate()+' '+MOIS[d.getMonth()]; }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+let toastT;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ============ NAVIGATION ============ */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+    t.classList.add('on');
+    const v = t.dataset.view;
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+    $('#v-'+v).classList.add('active');
+    if(v==='cal') renderCal();
+    if(v==='hist') renderHist();
+    window.scrollTo(0,0);
+  };
+});
+
+/* ============ RECONNAISSANCE VOCALE ============ */
+let recog=null, recording=false, transcript='';
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if(SR){
+  recog = new SR();
+  recog.lang='fr-FR'; recog.continuous=true; recog.interimResults=true;
+  recog.onresult = e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r=e.results[i];
+      if(r.isFinal) transcript += r[0].transcript+' ';
+      else interim += r[0].transcript;
+    }
+    $('#rawNotes').value = (transcript+interim).trim();
+  };
+  recog.onend = ()=>{ if(recording){ try{recog.start()}catch(e){} } };
+  recog.onerror = e=>{ if(e.error==='not-allowed'){ toast("Micro refusé — écris ta note"); stopRec(); showTextMode(); } };
+}
+function showTextMode(){ $('#rawNotes').style.display='block'; $('#afterRec').style.display='block'; }
+function startRec(){
+  if(!recog){ toast("Vocal indispo ici, écris ta note"); showTextMode(); return; }
+  transcript = $('#rawNotes').value ? $('#rawNotes').value+' ' : '';
+  recording=true;
+  try{ recog.start(); }catch(e){}
+  $('#recBtn').classList.add('live'); $('#recBtn').textContent='⏹';
+  $('#recLabel').textContent="Je t'écoute…";
+  $('#recHint').textContent="Prends ton temps. Appuie pour arrêter.";
+  showTextMode();
+}
+function stopRec(){
+  recording=false;
+  try{ recog && recog.stop(); }catch(e){}
+  $('#recBtn').classList.remove('live'); $('#recBtn').textContent='💜';
+  $('#recLabel').textContent="Comment s'est passé ta séance aujourd'hui ?";
+  $('#recHint').textContent="";
+}
+$('#recBtn').onclick = ()=> recording ? stopRec() : startRec();
+$('#clearRaw').onclick = ()=>{ $('#rawNotes').value=''; transcript=''; $('#resultCard').style.display='none'; };
+
+/* ============ APPEL API CLAUDE ============ */
+async function callClaude(rawText){
+  const key = localStorage.getItem(AI_KEY);
+  if(!key){ openSettings(true); throw new Error('no-key'); }
+  const prompt = `Tu es un assistant bienveillant qui aide une personne à faire le point après sa séance chez le psychologue. La date d'aujourd'hui est ${todayISO()}. Voici ses notes brutes (dictées ou écrites) : 
+
+"""${rawText}"""
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, sans balises markdown, avec cette structure exacte :
+{
+  "titre": "un titre court de la séance (5 mots max)",
+  "resume": "un résumé clair et apaisant en 3-4 phrases, à la 2e personne, qui remet les idées au clair",
+  "humeur": "un mot pour l'état d'esprit (ex: apaisée, pensive, fatiguée, motivée)",
+  "exercices": ["exercice concret 1 que le psy a suggéré", "exercice 2", "..."],
+  "prochains_rdv": [{"date":"YYYY-MM-DD","note":"ce qu'il faut préparer ou aborder à ce rendez-vous"}]
+}
+Pour "prochains_rdv" : si elle mentionne une prochaine séance ou un rendez-vous à venir (ex: "la semaine prochaine", "dans 15 jours", "le 12", "vendredi prochain"), calcule la date réelle à partir d'aujourd'hui (${todayISO()}) et ajoute-la. S'il n'y a aucune date future mentionnée, mets un tableau vide. Si aucun exercice n'est mentionné, mets un tableau vide pour exercices. Sois doux et concret.`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({
+      model:'claude-sonnet-4-6',
+      max_tokens:1024,
+      messages:[{role:'user',content:prompt}]
+    })
+  });
+  if(!res.ok){
+    if(res.status===401){ toast("Clé API invalide"); openSettings(true); }
+    else toast("Erreur IA ("+res.status+")");
+    throw new Error('api '+res.status);
+  }
+  const data = await res.json();
+  let txt = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+  txt = txt.replace(/```json|```/g,'').trim();
+  return JSON.parse(txt);
+}
+
+/* ============ TRAITEMENT NOTE → SÉANCE ============ */
+$('#processBtn').onclick = async ()=>{
+  const raw = $('#rawNotes').value.trim();
+  if(!raw){ toast("Dis ou écris quelque chose d'abord"); return; }
+  if(recording) stopRec();
+  const btn=$('#processBtn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span><span>Je réfléchis…</span>';
+  try{
+    const r = await callClaude(raw);
+    const sid = uid();
+    db.sessions.unshift({ id:sid, date:todayISO(), time:'', title:r.titre||'Séance psy', rawNotes:raw, summary:r.resume||'', mood:r.humeur||'', createdAt:Date.now(), done:true });
+    (r.exercices||[]).forEach(t=>{ if(t&&t.trim()) db.todos.unshift({id:uid(),text:t.trim(),done:false,sessionId:sid,createdAt:Date.now()}); });
+    let nb=0;
+    (r.prochains_rdv||[]).forEach(rdv=>{
+      if(rdv && rdv.date && /^\d{4}-\d{2}-\d{2}$/.test(rdv.date) && rdv.date>todayISO()){
+        if(!db.sessions.some(s=>s.date===rdv.date)){
+          db.sessions.unshift({id:uid(),date:rdv.date,time:'',title:'Séance psy',rawNotes:rdv.note||'',summary:'',mood:'',createdAt:Date.now(),done:false});
+          nb++;
+        }
+      }
+    });
+    save();
+    showResult(r);
+    $('#rawNotes').value=''; transcript=''; $('#rawNotes').style.display='none'; $('#afterRec').style.display='none';
+    renderTodos(); renderStats(); renderCal(); renderHist();
+    toast(nb ? "Séance + "+nb+" rdv ajoutés 💜" : "Séance enregistrée 💜");
+  }catch(e){
+    if(e.message!=='no-key' && !e.message.startsWith('api')) toast("Réponse IA illisible, réessaie");
+  }finally{
+    btn.disabled=false; btn.innerHTML='<span>Mettre au clair</span>';
+  }
+};
+function showResult(r){
+  const c=$('#resultCard');
+  c.className='card';
+  c.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <h2>${esc(r.titre||'Séance')}</h2>
+      ${r.humeur?`<span class="pill">${esc(r.humeur)}</span>`:''}
+    </div>
+    <p style="font-size:14.5px;color:var(--ink-soft);line-height:1.55">${esc(r.resume||'')}</p>`;
+  c.style.display='block';
+}
+
+/* ============ TODOS ============ */
+function renderTodos(){
+  const list=$('#todoList');
+  const items=db.todos.filter(t=>!t.done).concat(db.todos.filter(t=>t.done));
+  if(!items.length){ list.innerHTML='<div class="empty" style="padding:20px 0"><div class="ico">🍃</div><p>Aucun exercice pour le moment.<br>Ils apparaîtront après ta prochaine séance.</p></div>'; return; }
+  list.innerHTML = items.map(t=>`
+    <div class="todo ${t.done?'done':''}" data-id="${t.id}">
+      <div class="box ${t.done?'on':''}">${t.done?'✓':''}</div>
+      <div class="todo-txt" data-edit="${t.id}">${esc(t.text)}</div>
+      <button class="todo-del" data-del="${t.id}" aria-label="Supprimer">✕</button>
+    </div>`).join('');
+  list.querySelectorAll('.todo').forEach(el=>{
+    el.querySelector('.box').onclick=()=>{ const t=db.todos.find(x=>x.id===el.dataset.id); t.done=!t.done; save(); renderTodos(); renderStats(); };
+  });
+  list.querySelectorAll('[data-edit]').forEach(el=>{
+    el.onclick=()=>openTodoSheet(el.dataset.edit);
+  });
+  list.querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick=e=>{ e.stopPropagation(); db.todos=db.todos.filter(x=>x.id!==b.dataset.del); save(); renderTodos(); renderStats(); };
+  });
+}
+function openTodoSheet(id){
+  const t = id ? db.todos.find(x=>x.id===id) : null;
+  openSheet(`
+    <h2>${t?'Modifier la tâche':'Nouvelle tâche'}</h2>
+    <div class="field"><label>À faire</label><textarea id="f-todo" placeholder="ex: exercice de respiration le matin">${t?esc(t.text):''}</textarea></div>
+    <button class="btn btn-primary" onclick="saveTodo('${id||''}')">Enregistrer</button>
+    ${t?`<button class="btn btn-ghost" onclick="delTodo('${id}')" style="margin-top:10px;color:var(--danger)">Supprimer</button>`:''}
+  `);
+  setTimeout(()=>{ const f=$('#f-todo'); if(f) f.focus(); },100);
+}
+window.saveTodo=id=>{
+  const v=$('#f-todo').value.trim();
+  if(!v){ toast("Écris quelque chose d'abord"); return; }
+  if(id){ const t=db.todos.find(x=>x.id===id); if(t) t.text=v; }
+  else db.todos.unshift({id:uid(),text:v,done:false,sessionId:null,createdAt:Date.now()});
+  save(); closeSheet(); renderTodos(); renderStats();
+};
+window.delTodo=id=>{ db.todos=db.todos.filter(x=>x.id!==id); save(); closeSheet(); renderTodos(); renderStats(); };
+document.getElementById('addTodoBtn').onclick=()=>openTodoSheet(null);
+function renderStats(){
+  $('#stSess').textContent = db.sessions.filter(s=>s.done).length;
+  const done=db.todos.filter(t=>t.done).length, tot=db.todos.length;
+  $('#stDone').textContent = tot? done+'/'+tot : '0';
+  $('#stStreak').textContent = db.todos.filter(t=>!t.done).length;
+}
+
+/* ============ CALENDRIER ============ */
+let calY, calM;
+function initCal(){ const n=new Date(); calY=n.getFullYear(); calM=n.getMonth(); }
+$('#calPrev').onclick=()=>{ calM--; if(calM<0){calM=11;calY--;} renderCal(); };
+$('#calNext').onclick=()=>{ calM++; if(calM>11){calM=0;calY++;} renderCal(); };
+function renderCal(){
+  $('#calMonth').textContent = MOIS[calM]+' '+calY;
+  let html = ['L','M','M','J','V','S','D'].map(d=>`<div class="dow">${d}</div>`).join('');
+  const start=(new Date(calY,calM,1).getDay()+6)%7; // 0 = lundi
+  const days=new Date(calY,calM+1,0).getDate();
+  const today=todayISO();
+  for(let i=0;i<start;i++) html+='<div class="day empty"></div>';
+  for(let d=1;d<=days;d++){
+    const iso=`${calY}-${String(calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const sess=db.sessions.find(s=>s.date===iso);
+    let cls='day tappable';
+    if(iso===today) cls+=' today';
+    if(sess){ cls += sess.done ? ' past-s' : ' next-s'; }
+    html+=`<div class="${cls}" data-iso="${iso}">${d}</div>`;
+  }
+  $('#calGrid').innerHTML=html;
+  $('#calGrid').querySelectorAll('.day.tappable').forEach(el=>{
+    el.onclick=()=>openDay(el.dataset.iso);
+  });
+}
+function openDay(iso){
+  const sess=db.sessions.filter(s=>s.date===iso);
+  if(sess.length){ openSession(sess[0].id); }
+  else openAddSession(iso);
+}
+
+/* ============ HISTORIQUE ============ */
+function renderHist(){
+  const list=$('#sessList');
+  const all=[...db.sessions].sort((a,b)=> a.date<b.date?1:-1);
+  if(!all.length){ list.innerHTML='<div class="empty"><div class="ico">📖</div><p>Aucune séance encore.<br>Enregistre ta première depuis l\'accueil.</p></div>'; return; }
+  list.innerHTML = all.map(s=>{
+    const d=new Date(s.date+'T00:00');
+    const cnt=db.todos.filter(t=>t.sessionId===s.id);
+    const dcnt=cnt.filter(t=>t.done).length;
+    const upcoming=!s.done;
+    return `<div class="sess" data-id="${s.id}">
+      <div class="sess-date"><div class="d">${d.getDate()}</div><div class="mo">${MOIS_C[d.getMonth()]}</div></div>
+      <div class="sess-body">
+        <div class="t">${esc(s.title)}${upcoming?' · <span style="color:var(--lav-500)">à venir</span>':''}</div>
+        <div class="p">${esc(s.summary||s.rawNotes||'—')}</div>
+        ${cnt.length?`<div class="cnt">${dcnt}/${cnt.length} exercices faits</div>`:''}
+      </div>
+      <div class="sess-chev">›</div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.sess').forEach(el=> el.onclick=()=>openSession(el.dataset.id));
+}
+
+/* ============ SHEETS (modales) ============ */
+function openSheet(html){ $('#sheet').innerHTML='<div class="grab"></div>'+html; $('#overlay').classList.add('show'); }
+function closeSheet(){ $('#overlay').classList.remove('show'); }
+$('#overlay').onclick=e=>{ if(e.target.id==='overlay') closeSheet(); };
+
+function openSession(id){
+  const s=db.sessions.find(x=>x.id===id); if(!s) return;
+  const cnt=db.todos.filter(t=>t.sessionId===id);
+  openSheet(`
+    <h2>${esc(s.title)}</h2>
+    <div class="muted" style="margin-bottom:14px">${fmtDate(s.date)}${s.time?' · '+s.time:''}${s.mood?' · '+esc(s.mood):''}${s.done?'':' · à venir'}</div>
+    ${s.summary?`<div class="card"><div style="font-size:12px;font-weight:600;color:var(--lav-600);margin-bottom:6px">RÉSUMÉ</div><p style="font-size:14.5px;color:var(--ink-soft);line-height:1.55">${esc(s.summary)}</p></div>`:''}
+    ${s.rawNotes?`<div class="card"><div style="font-size:12px;font-weight:600;color:var(--ink-faint);margin-bottom:6px">MES NOTES BRUTES</div><p style="font-size:13.5px;color:var(--ink-soft);line-height:1.5">${esc(s.rawNotes)}</p></div>`:''}
+    ${cnt.length?`<div class="card"><div style="font-size:12px;font-weight:600;color:var(--lav-600);margin-bottom:10px">EXERCICES</div>${cnt.map(t=>`<div class="todo ${t.done?'done':''}"><div class="box ${t.done?'on':''}">${t.done?'✓':''}</div><div class="todo-txt">${esc(t.text)}</div></div>`).join('')}</div>`:''}
+    ${!s.done?`<button class="btn btn-primary" onclick="markPrep('${id}')" style="margin-top:4px">Ajouter des notes / préparer</button>`:''}
+    <button class="btn btn-ghost" onclick="delSession('${id}')" style="margin-top:10px;color:var(--danger)">Supprimer cette séance</button>
+  `);
+}
+window.markPrep=id=>{ closeSheet(); const s=db.sessions.find(x=>x.id===id); openAddSession(s.date, s); };
+window.delSession=id=>{ db.sessions=db.sessions.filter(x=>x.id!==id); db.todos=db.todos.filter(t=>t.sessionId!==id); save(); closeSheet(); renderCal(); renderHist(); renderStats(); renderTodos(); toast("Séance supprimée"); };
+
+function openAddSession(iso, existing){
+  const s=existing||{};
+  openSheet(`
+    <h2>${existing?'Préparer la séance':'Planifier une séance'}</h2>
+    <div class="field"><label>Date</label><input type="date" id="f-date" value="${s.date||iso||todayISO()}"></div>
+    <div class="field"><label>Heure (optionnel)</label><input type="time" id="f-time" value="${s.time||''}"></div>
+    <div class="field"><label>Intitulé</label><input type="text" id="f-title" placeholder="Séance psy" value="${esc(s.title||'')}"></div>
+    <div class="field"><label>Choses à aborder / notes de préparation</label><textarea id="f-notes" placeholder="Ce que je veux dire, mes questions…">${esc(s.rawNotes||'')}</textarea></div>
+    <button class="btn btn-primary" onclick="saveSession('${existing?existing.id:''}')">Enregistrer</button>
+  `);
+}
+window.saveSession=id=>{
+  const date=$('#f-date').value, time=$('#f-time').value, title=$('#f-title').value.trim()||'Séance', notes=$('#f-notes').value.trim();
+  const isPast = date < todayISO();
+  if(id){
+    const s=db.sessions.find(x=>x.id===id); s.date=date; s.time=time; s.title=title; s.rawNotes=notes;
+  }else{
+    db.sessions.unshift({id:uid(),date,time,title,rawNotes:notes,summary:'',mood:'',createdAt:Date.now(),done:isPast});
+  }
+  save(); closeSheet(); renderCal(); renderHist(); renderStats();
+  toast("Enregistré 🌿");
+};
+$('#addSessBtn').onclick=()=>openAddSession(todayISO());
+
+/* ============ RÉGLAGES / CLÉ API ============ */
+$('#settingsBtn').onclick=()=>openSettings(false);
+function openSettings(needKey){
+  const key=localStorage.getItem(AI_KEY)||'';
+  openSheet(`
+    <h2>Réglages</h2>
+    <div class="muted" style="margin-bottom:8px">${needKey?'Ajoute ta clé pour activer la mise au clair par l\'IA.':'Tes données restent sur ton téléphone.'}</div>
+    <div class="field">
+      <label>Clé API Claude</label>
+      <input type="password" id="f-key" placeholder="sk-ant-..." value="${key}">
+      <div class="warn">Pour activer l'IA : crée une clé sur <span class="link" onclick="openLink('https://console.anthropic.com')">console.anthropic.com</span> et colle-la ici. Elle reste stockée uniquement sur ce téléphone.</div>
+    </div>
+    <button class="btn btn-primary" onclick="saveKey()">Enregistrer la clé</button>
+    <div class="field" style="margin-top:22px">
+      <label>Mes données</label>
+      <button class="btn btn-ghost" onclick="exportData()" style="margin-bottom:8px">⬇ Exporter (sauvegarde)</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()">⬆ Importer une sauvegarde</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+    </div>
+  `);
+  const imp=$('#importFile'); if(imp) imp.onchange=importData;
+}
+window.saveKey=()=>{ const k=$('#f-key').value.trim(); if(k) localStorage.setItem(AI_KEY,k); else localStorage.removeItem(AI_KEY); closeSheet(); toast("Réglages enregistrés"); };
+window.openLink=u=>window.open(u,'_blank');
+window.exportData=()=>{
+  const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='mon-suivi-sauvegarde-'+todayISO()+'.json'; a.click();
+  toast("Sauvegarde exportée");
+};
+window.importData=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const d=JSON.parse(r.result); if(d.sessions&&d.todos){ Object.assign(db,d); save(); closeSheet(); renderAll(); toast("Sauvegarde importée 🌿"); } else toast("Fichier invalide"); }catch(err){ toast("Fichier illisible"); } };
+  r.readAsText(f);
+};
+
+/* ============ ESC & INIT ============ */
+function esc(s){ return (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function renderAll(){ renderTodos(); renderStats(); renderCal(); renderHist(); }
+load(); initCal(); renderAll();
+if(!SR){ $('#recHint').textContent="Sur iPhone, ouvre l'appli depuis l'écran d'accueil pour le micro. Sinon écris ta note."; }
+</script>
+</body>
+</html>
