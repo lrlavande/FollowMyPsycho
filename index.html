@@ -94,6 +94,11 @@
   .cal-legend{display:flex;gap:16px;margin-top:14px;flex-wrap:wrap}
   .lg{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-soft)}
   .dot{width:12px;height:12px;border-radius:4px}
+  .mdot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%}
+  .mood-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+  .mood-opt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px;border-radius:14px;border:1.5px solid var(--line);background:var(--white);font-size:12px;color:var(--ink-soft);font-weight:500;transition:.15s}
+  .mood-opt.sel{border-color:var(--lav-500);background:var(--lav-50);color:var(--lav-700)}
+  .mood-opt:active{transform:scale(.96)}
 
   /* ---- Session list ---- */
   .sess{display:flex;gap:13px;padding:14px 0;border-bottom:.5px solid var(--line)}
@@ -198,8 +203,10 @@
       <div class="cal-legend">
         <div class="lg"><span class="dot" style="background:var(--lav-600)"></span>Séance passée</div>
         <div class="lg"><span class="dot" style="background:var(--lav-100);border:1.5px dashed var(--lav-400)"></span>À venir</div>
+        <div class="lg"><span class="dot" style="background:#A899DD;width:8px;height:8px;border-radius:50%"></span>Humeur notée</div>
       </div>
     </div>
+    <p class="muted" style="text-align:center;margin-bottom:12px;font-size:12.5px">Appuie sur un jour pour noter ton humeur ou planifier une séance</p>
     <button class="btn btn-primary" id="addSessBtn" style="margin-bottom:14px">＋ Planifier une séance</button>
   </div>
 
@@ -234,9 +241,11 @@ const AI_KEY = 'monsuivi_apikey';
 const db = {
   sessions: [],   // {id, date, time, title, rawNotes, summary, mood, createdAt, done:bool}
   todos: [],      // {id, text, done, sessionId, createdAt}
+  moods: {},      // { "YYYY-MM-DD": {emoji, label, note} }
 };
 function load(){
   try{ const raw = localStorage.getItem(DB_KEY); if(raw) Object.assign(db, JSON.parse(raw)); }catch(e){}
+  if(!db.moods) db.moods={};
 }
 function save(){ try{ localStorage.setItem(DB_KEY, JSON.stringify(db)); }catch(e){ toast("Stockage plein ou bloqué"); } }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
@@ -455,31 +464,99 @@ function renderCal(){
     let cls='day tappable';
     if(iso===today) cls+=' today';
     if(sess){ cls += sess.done ? ' past-s' : ' next-s'; }
-    html+=`<div class="${cls}" data-iso="${iso}">${d}</div>`;
+    const md=db.moods[iso];
+    const dot = md ? `<span class="mdot" style="background:${md.color||'#A899DD'}"></span>` : '';
+    html+=`<div class="${cls}" data-iso="${iso}">${d}${dot}</div>`;
   }
   $('#calGrid').innerHTML=html;
   $('#calGrid').querySelectorAll('.day.tappable').forEach(el=>{
     el.onclick=()=>openDay(el.dataset.iso);
   });
 }
+const MOODS=[
+  {emoji:'😊',label:'Bien',color:'#7EC98F'},
+  {emoji:'🙂',label:'Ça va',color:'#A9CE6A'},
+  {emoji:'😐',label:'Neutre',color:'#E0C36A'},
+  {emoji:'😟',label:'Pas ouf',color:'#E5A15C'},
+  {emoji:'😢',label:'Difficile',color:'#D98A8A'},
+  {emoji:'😡',label:'Énervée',color:'#C77BB0'}
+];
 function openDay(iso){
   const sess=db.sessions.filter(s=>s.date===iso);
-  if(sess.length){ openSession(sess[0].id); }
-  else openAddSession(iso);
+  const md=db.moods[iso];
+  if(sess.length){
+    openSheet(`
+      <h2>${fmtDate(iso)}</h2>
+      <div class="muted" style="margin-bottom:16px">Qu'est-ce que tu veux faire ?</div>
+      <button class="btn btn-primary" onclick="openSession('${sess[0].id}')" style="margin-bottom:10px">Voir la séance</button>
+      <button class="btn btn-ghost" onclick="openMood('${iso}')">${md?'Voir / modifier mon humeur':'Noter mon humeur du jour'}</button>
+    `);
+  } else {
+    openSheet(`
+      <h2>${fmtDate(iso)}</h2>
+      <div class="muted" style="margin-bottom:16px">Qu'est-ce que tu veux faire ?</div>
+      <button class="btn btn-primary" onclick="openMood('${iso}')" style="margin-bottom:10px">${md?'Voir / modifier mon humeur':'Noter mon humeur du jour'}</button>
+      <button class="btn btn-ghost" onclick="openAddSession('${iso}')">Planifier une séance ce jour</button>
+    `);
+  }
 }
+function openMood(iso){
+  const m=db.moods[iso]||{};
+  openSheet(`
+    <h2>Mon humeur</h2>
+    <div class="muted" style="margin-bottom:14px">${fmtDate(iso)}</div>
+    <div class="mood-grid">
+      ${MOODS.map(x=>`<button class="mood-opt ${m.label===x.label?'sel':''}" data-mood="${x.label}"><span style="font-size:26px">${x.emoji}</span><span>${x.label}</span></button>`).join('')}
+    </div>
+    <div class="field"><label>Un mot sur ta journée</label><textarea id="f-mood-note" placeholder="Ce qui s'est passé, ce que tu ressens…">${esc(m.note||'')}</textarea></div>
+    <button class="btn btn-primary" onclick="saveMood('${iso}')">Enregistrer</button>
+    ${m.label?`<button class="btn btn-ghost" onclick="delMood('${iso}')" style="margin-top:10px;color:var(--danger)">Effacer cette entrée</button>`:''}
+  `);
+  let picked=m.label||'';
+  $('#sheet').querySelectorAll('[data-mood]').forEach(b=>{
+    b.onclick=()=>{ $('#sheet').querySelectorAll('.mood-opt').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); picked=b.dataset.mood; window._pickedMood=picked; };
+  });
+  window._pickedMood=picked;
+}
+window.saveMood=iso=>{
+  const label=window._pickedMood;
+  const note=$('#f-mood-note').value.trim();
+  if(!label && !note){ toast("Choisis une humeur ou écris un mot"); return; }
+  const m=MOODS.find(x=>x.label===label)||{};
+  db.moods[iso]={emoji:m.emoji||'📝',label:label||'',color:m.color||'#A899DD',note};
+  save(); closeSheet(); renderCal(); renderHist();
+  toast("Humeur enregistrée 💜");
+};
+window.delMood=iso=>{ delete db.moods[iso]; save(); closeSheet(); renderCal(); renderHist(); toast("Entrée effacée"); };
 
 /* ============ HISTORIQUE ============ */
 function renderHist(){
   const list=$('#sessList');
-  const all=[...db.sessions].sort((a,b)=> a.date<b.date?1:-1);
-  if(!all.length){ list.innerHTML='<div class="empty"><div class="ico">📖</div><p>Aucune séance encore.<br>Enregistre ta première depuis l\'accueil.</p></div>'; return; }
-  list.innerHTML = all.map(s=>{
-    const d=new Date(s.date+'T00:00');
+  const items=[
+    ...db.sessions.map(s=>({type:'sess',date:s.date,data:s})),
+    ...Object.entries(db.moods).map(([date,m])=>({type:'mood',date,data:m}))
+  ].sort((a,b)=> a.date<b.date?1:(a.date>b.date?-1:0));
+  if(!items.length){ list.innerHTML='<div class="empty"><div class="ico">📖</div><p>Rien encore.<br>Note ta première séance ou ton humeur du jour.</p></div>'; return; }
+  list.innerHTML = items.map(it=>{
+    const d=new Date(it.date+'T00:00');
+    const dateBox=`<div class="sess-date"><div class="d">${d.getDate()}</div><div class="mo">${MOIS_C[d.getMonth()]}</div></div>`;
+    if(it.type==='mood'){
+      const m=it.data;
+      return `<div class="sess" data-mood-iso="${it.date}">
+        ${dateBox}
+        <div class="sess-body">
+          <div class="t">${m.emoji||'📝'} ${esc(m.label||'Note du jour')}</div>
+          ${m.note?`<div class="p">${esc(m.note)}</div>`:''}
+        </div>
+        <div class="sess-chev">›</div>
+      </div>`;
+    }
+    const s=it.data;
     const cnt=db.todos.filter(t=>t.sessionId===s.id);
     const dcnt=cnt.filter(t=>t.done).length;
     const upcoming=!s.done;
     return `<div class="sess" data-id="${s.id}">
-      <div class="sess-date"><div class="d">${d.getDate()}</div><div class="mo">${MOIS_C[d.getMonth()]}</div></div>
+      ${dateBox}
       <div class="sess-body">
         <div class="t">${esc(s.title)}${upcoming?' · <span style="color:var(--lav-500)">à venir</span>':''}</div>
         <div class="p">${esc(s.summary||s.rawNotes||'—')}</div>
@@ -488,7 +565,8 @@ function renderHist(){
       <div class="sess-chev">›</div>
     </div>`;
   }).join('');
-  list.querySelectorAll('.sess').forEach(el=> el.onclick=()=>openSession(el.dataset.id));
+  list.querySelectorAll('[data-id]').forEach(el=> el.onclick=()=>openSession(el.dataset.id));
+  list.querySelectorAll('[data-mood-iso]').forEach(el=> el.onclick=()=>openMood(el.dataset.moodIso));
 }
 
 /* ============ SHEETS (modales) ============ */
@@ -537,18 +615,28 @@ window.saveSession=id=>{
 $('#addSessBtn').onclick=()=>openAddSession(todayISO());
 
 /* ============ RÉGLAGES / CLÉ API ============ */
+const KEY_PW='180520';
 $('#settingsBtn').onclick=()=>openSettings(false);
 function openSettings(needKey){
   const key=localStorage.getItem(AI_KEY)||'';
+  const locked = key && !needKey; // clé déjà définie -> verrouillée par défaut
+  const keySection = locked ? `
+      <label>Clé API Claude</label>
+      <div class="warn" style="background:var(--lav-50);color:var(--lav-700)">🔒 Une clé est déjà enregistrée et l'IA est active. Pour la voir ou la modifier, entre le mot de passe.</div>
+      <input type="password" id="f-pw" placeholder="Mot de passe" style="margin-top:10px">
+      <button class="btn btn-ghost" onclick="unlockKey()" style="margin-top:10px">Déverrouiller</button>
+    ` : `
+      <label>Clé API Claude</label>
+      <input type="password" id="f-key" placeholder="sk-ant-..." value="${key}">
+      <div class="warn">Pour activer l'IA : crée une clé sur <span class="link" onclick="openLink('https://console.anthropic.com')">console.anthropic.com</span> et colle-la ici. Elle reste stockée uniquement sur ce téléphone.</div>
+      <button class="btn btn-primary" onclick="saveKey()" style="margin-top:12px">Enregistrer la clé</button>
+    `;
   openSheet(`
     <h2>Réglages</h2>
     <div class="muted" style="margin-bottom:8px">${needKey?'Ajoute ta clé pour activer la mise au clair par l\'IA.':'Tes données restent sur ton téléphone.'}</div>
     <div class="field">
-      <label>Clé API Claude</label>
-      <input type="password" id="f-key" placeholder="sk-ant-..." value="${key}">
-      <div class="warn">Pour activer l'IA : crée une clé sur <span class="link" onclick="openLink('https://console.anthropic.com')">console.anthropic.com</span> et colle-la ici. Elle reste stockée uniquement sur ce téléphone.</div>
+      ${keySection}
     </div>
-    <button class="btn btn-primary" onclick="saveKey()">Enregistrer la clé</button>
     <div class="field" style="margin-top:22px">
       <label>Mes données</label>
       <button class="btn btn-ghost" onclick="exportData()" style="margin-bottom:8px">⬇ Exporter (sauvegarde)</button>
@@ -558,7 +646,18 @@ function openSettings(needKey){
   `);
   const imp=$('#importFile'); if(imp) imp.onchange=importData;
 }
-window.saveKey=()=>{ const k=$('#f-key').value.trim(); if(k) localStorage.setItem(AI_KEY,k); else localStorage.removeItem(AI_KEY); closeSheet(); toast("Réglages enregistrés"); };
+window.unlockKey=()=>{
+  const pw=$('#f-pw').value.trim();
+  if(pw!==KEY_PW){ toast("Mot de passe incorrect"); return; }
+  const key=localStorage.getItem(AI_KEY)||'';
+  const box=$('#f-pw').parentElement;
+  box.innerHTML=`
+    <label>Clé API Claude</label>
+    <input type="text" id="f-key" placeholder="sk-ant-..." value="${esc(key)}">
+    <div class="warn">Modifie ou remplace la clé. Elle reste stockée uniquement sur ce téléphone.</div>
+    <button class="btn btn-primary" onclick="saveKey()" style="margin-top:12px">Enregistrer la clé</button>`;
+};
+window.saveKey=()=>{ const el=$('#f-key'); if(!el) return; const k=el.value.trim(); if(k) localStorage.setItem(AI_KEY,k); else localStorage.removeItem(AI_KEY); closeSheet(); toast("Clé enregistrée 💜"); };
 window.openLink=u=>window.open(u,'_blank');
 window.exportData=()=>{
   const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
