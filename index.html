@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -503,7 +503,7 @@ function openSession(id){
     <h2>${esc(s.title)}</h2>
     <div class="muted" style="margin-bottom:14px">${fmtDate(s.date)}${s.time?' · '+s.time:''}${s.mood?' · '+esc(s.mood):''}${s.done?'':' · à venir'}</div>
     ${s.summary?`<div class="card"><div style="font-size:12px;font-weight:600;color:var(--lav-600);margin-bottom:6px">RÉSUMÉ</div><p style="font-size:14.5px;color:var(--ink-soft);line-height:1.55">${esc(s.summary)}</p></div>`:''}
-    ${s.rawNotes?`<div class="card"><div style="font-size:12px;font-weight:600;color:var(--ink-faint);margin-bottom:6px">MES NOTES BRUTES</div><p style="font-size:13.5px;color:var(--ink-soft);line-height:1.5">${esc(s.rawNotes)}</p></div>`:''}
+    ${s.rawNotes?`<div class="card"><div style="font-size:12px;font-weight:600;color:var(--ink-faint);margin-bottom:6px">Mes notes</div><p style="font-size:13.5px;color:var(--ink-soft);line-height:1.5">${esc(s.rawNotes)}</p></div>`:''}
     ${cnt.length?`<div class="card"><div style="font-size:12px;font-weight:600;color:var(--lav-600);margin-bottom:10px">EXERCICES</div>${cnt.map(t=>`<div class="todo ${t.done?'done':''}"><div class="box ${t.done?'on':''}">${t.done?'✓':''}</div><div class="todo-txt">${esc(t.text)}</div></div>`).join('')}</div>`:''}
     ${!s.done?`<button class="btn btn-primary" onclick="markPrep('${id}')" style="margin-top:4px">Ajouter des notes / préparer</button>`:''}
     <button class="btn btn-ghost" onclick="delSession('${id}')" style="margin-top:10px;color:var(--danger)">Supprimer cette séance</button>
